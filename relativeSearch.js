@@ -1,13 +1,19 @@
-const fs = require('fs');
+const fs = require('fs'),
+  utils = require('./lib/utils.js');
 
-fs.readFile('./roms/PokemonRed.gb', (error, data) => {
+let args = process.argv.slice(2, 4);
+let romPath = args[0];
+let text = args[1];
+
+fs.readFile(romPath, (error, data) => {
   let array = new Uint8Array(data);
-  let sentenceArray = buildSentence('elcome');
+  let sentenceArray = buildSentence(text);
   let distance = calculateDistance(sentenceArray);
   let foundByteRoot, foundHexSentence;
+
   if ([...Array(0xff).keys()].some(byte => {
     let hexSentence = createHexSentence(distance, byte);
-    let result = findInsideBuffer(hexSentence, array) >= 0;
+    let result = utils.findInsideBuffer(hexSentence, array) >= 0;
     if (result) {
       console.log('Found!')
       foundHexSentence = hexSentence
@@ -17,8 +23,8 @@ fs.readFile('./roms/PokemonRed.gb', (error, data) => {
     return result;
   })) {
     if (foundHexSentence) {
-      console.log('hexSentence:', foundHexSentence.map(byte => Number(byte).toString(16).toUpperCase()).join(' '))
-      console.log('byte root:', foundByteRoot);
+      console.log('hexSentence:', foundHexSentence.map(byte => ('00' + Number(byte).toString(16)).substr(-2).toUpperCase()).join(' '))
+      console.log(`Byte for ${isUpperCase(text[0]) ? 'A' : 'a'}:`, getAByte(text, foundHexSentence).toString(16));
     }
   }
   else {
@@ -27,7 +33,7 @@ fs.readFile('./roms/PokemonRed.gb', (error, data) => {
 });
 
 const buildSentence = sentence  => {
-  return Array.from(sentence).map((char) => char.charCodeAt(0).toString('16'));
+  return Array.from(sentence).map((char) => ('00' + char.charCodeAt(0).toString('16')).substr(-2));
 };
 
 const calculateDistance = sentenceArray => {
@@ -38,29 +44,15 @@ const createHexSentence = (distance, root) => {
   return distance.map(byte => root - byte);
 };
 
-const findInsideBuffer = (distanceArray, buffer) => {
-  let lastIndex = -1;
-  let headIndex = -1;
-  for (var i=0; i<distanceArray.length;i++) {
-    if (i === 0) {
-      lastIndex = buffer.indexOf(distanceArray[i], lastIndex >= 0 ? lastIndex : 0);
-      if (lastIndex >= 0) {
-        headIndex = lastIndex;
-        lastIndex++;
-      } else {
-        break;
-      }
-    }
-    else {
-      if (buffer[lastIndex] === distanceArray[i]) {
-        lastIndex++;
-      }
-      else {
-        headIndex = -1;
-        i = -1;
-      }
-    }
+const getAByte = (text, hexSentence) => {
+  let letterIndex;
+  if (isUpperCase(text[0])) {
+    letterIndex = utils.alphabet.toUpperCase().indexOf(text[0]);
+    return (hexSentence[0] - letterIndex).toString(16).toUpperCase();
   }
 
-  return headIndex;
+  letterIndex = utils.alphabet.indexOf(text[0]);
+  return (hexSentence[0] - letterIndex).toString(16).toUpperCase();
 };
+
+const isUpperCase = char => char === char.toUpperCase();
